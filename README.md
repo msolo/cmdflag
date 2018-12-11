@@ -1,2 +1,2 @@
 # cmdflag
-Simple wiring for command flags that enable subcommands and shell completions.
+Simple wiring for command flags that enables subcommands and shell completions.
