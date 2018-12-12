@@ -1,6 +1,8 @@
 # cmdflag
 Simple wiring for command flags that enables subcommands and shell completions.
 
+The heavy lifting of completion is accomplished using https://github.com/posener/complete. cmdflags just makes the API more straightforward for a broad class of programs.
+
 # An Example Self-completing Program
 A runnable example is included in [example.go](./example/example.go).
 
@@ -91,3 +93,6 @@ Install bash completions by running:
 -config-file  -timeout      
 > ./example <tab>demo 
 ```
+
+## Other Shells
+zsh and fish are supported by the upstream completiong libraries, so this should work.
