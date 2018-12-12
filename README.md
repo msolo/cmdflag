@@ -95,4 +95,4 @@ Install bash completions by running:
 ```
 
 ## Other Shells
-zsh and fish are supported by the upstream completiong libraries, so this should work.
+zsh and fish are supported by the upstream completion libraries, so this should work.
