@@ -55,7 +55,8 @@ func main() {
 	var timeout time.Duration
 	var configFile string
 
-	cmdMain.BindFlagSet(map[string]interface{}{"timeout": &timeout,
+	cmdMain.BindFlagSet(map[string]interface{}{
+		"timeout": &timeout,
 		"config-file": &configFile})
 
 	cmd, args := cmdflag.Parse(cmdMain, subcommands)
@@ -72,11 +73,10 @@ func main() {
 ```
 
 # Enabling Command Completion in Bash
-```bash
-msolo@x:…/cmdflag> cd example/
-msolo@x:…/cmdflag/example> go build
-msolo@x:…/cmdflag/example> ./example 
-mode provided but not defined: 
+```sh
+> cd example/
+> go build
+> ./example 
 Usage of example:
 example - a self-completing program
   -config-file string
@@ -86,8 +86,8 @@ example - a self-completing program
 
 Install bash completions by running:
 	complete -C example example
-msolo@x:…/cmdflag/example> complete -C ./example example
-msolo@x:…/cmdflag/example> ./example -<tab>
+> complete -C ./example example
+> ./example -<tab>
 -config-file  -timeout      
-msolo@x:…/cmdflag/example> ./example <tab>demo 
+> ./example <tab>demo 
 ```
