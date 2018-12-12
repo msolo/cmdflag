@@ -104,9 +104,17 @@ func (cmd *Command) completeCommand() complete.Command {
 	}
 }
 
-var completionDoc = `Install bash completions by running:
+var completionDoc = `
+Install bash completions by running:
 	complete -C %v %v
 `
+
+func ensureNewline(s string) string {
+	if s[len(s)-1] != '\n' {
+		s += "\n"
+	}
+	return s
+}
 
 func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 	cmdModeMap := make(map[string]*Command)
@@ -129,9 +137,9 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 	flagSet := cmdMain.FlagSet()
 	flagSet.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", cmdMain.Name)
-		fmt.Fprintf(os.Stderr, cmdMain.UsageLong)
+		fmt.Fprintf(os.Stderr, ensureNewline(cmdMain.UsageLong))
 		flagSet.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\n"+completionDoc, cmdMain.Name, cmdMain.Name)
+		fmt.Fprintf(os.Stderr, completionDoc, cmdMain.Name, cmdMain.Name)
 	}
 
 	flagSet.Parse(os.Args[1:])
@@ -152,7 +160,9 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 		return cmd, args
 	}
 
-	fmt.Fprintf(os.Stderr, "mode provided but not defined: %s\n", cmdName)
+	if cmdName != "" {
+		fmt.Fprintf(os.Stderr, "mode provided but not defined: %s\n", cmdName)
+	}
 	exitUsage()
 	return
 }
