@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ func runDemo(ctx context.Context, cmd *cmdflag.Command, args []string) {
 	subflag := false
 	flags := cmd.BindFlagSet(map[string]interface{}{"subflag": &subflag})
 	flags.Parse(args)
-	fmt.Println("demo subflag:", subflag)
+	fmt.Println("demo stdflag:", *stdflag, "subflag:", subflag)
 }
 
 var cmdMain = &cmdflag.Command{
@@ -41,6 +42,8 @@ var cmdMain = &cmdflag.Command{
 var subcommands = []*cmdflag.Command{
 	cmdDemo,
 }
+
+var stdflag = flag.Bool("std-flag", false, "Just a placeholder to show standard flag support.")
 
 func main() {
 	var timeout time.Duration

@@ -28,6 +28,7 @@ type Command struct {
 	Flags     []Flag
 	Args      complete.Predictor
 	flagSet   *flag.FlagSet
+	bound     bool
 }
 
 type Flag struct {
@@ -46,16 +47,18 @@ const (
 )
 
 func (cmd *Command) BindFlagSet(bindFlags map[string]interface{}) *flag.FlagSet {
-	if cmd.flagSet != nil {
+	if cmd.bound {
 		panic("flag set already bound for command: " + cmd.Name)
 	}
-	fs := flag.NewFlagSet(cmd.Name, flag.ExitOnError)
-	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n  %s\n", cmd.Name, cmd.UsageLine)
-		fmt.Fprintln(os.Stderr, cmd.UsageLong)
-		fs.PrintDefaults()
+	fs := cmd.flagSet
+	if fs == nil {
+		fs = flag.NewFlagSet(cmd.Name, flag.ExitOnError)
+		fs.Usage = func() {
+			fmt.Fprintf(os.Stderr, "Usage of %s:\n  %s\n", cmd.Name, cmd.UsageLine)
+			fmt.Fprintln(os.Stderr, cmd.UsageLong)
+			fs.PrintDefaults()
+		}
 	}
-
 	for name, val := range bindFlags {
 		var fdef *Flag
 		for _, x := range cmd.Flags {
@@ -79,6 +82,7 @@ func (cmd *Command) BindFlagSet(bindFlags map[string]interface{}) *flag.FlagSet 
 		}
 	}
 	cmd.flagSet = fs
+	cmd.bound = len(bindFlags) > 0
 	return fs
 }
 
@@ -94,6 +98,11 @@ func (cmd *Command) completeFlags() complete.Flags {
 	for _, fl := range cmd.Flags {
 		cf["-"+fl.Name] = fl.Predictor
 	}
+	fs := cmd.FlagSet()
+	fs.VisitAll(func(fl *flag.Flag) {
+		// Just complete the flag name - we can't know much else.
+		cf["-"+fl.Name] = PredictNothing
+	})
 	return cf
 }
 
@@ -117,11 +126,31 @@ func ensureNewline(s string) string {
 }
 
 func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
+	if flag.CommandLine.Parsed() {
+		panic("flag.Parse() parse cannot be called when using cmdflag")
+	}
+
 	cmdModeMap := make(map[string]*Command)
 	cmplModeMap := make(complete.Commands)
 	for _, cmd := range subCmds {
 		cmdModeMap[cmd.Name] = cmd
 		cmplModeMap[cmd.Name] = cmd.completeCommand()
+	}
+
+	if cmdMain.flagSet != nil {
+		flag.CommandLine.VisitAll(func(fl *flag.Flag) {
+			cmdMain.flagSet.Var(fl.Value, fl.Name, fl.Usage)
+		})
+		flag.CommandLine = cmdMain.flagSet
+	} else {
+		cmdMain.flagSet = flag.CommandLine
+	}
+	flagSet := cmdMain.FlagSet()
+	flagSet.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", cmdMain.Name)
+		fmt.Fprintf(os.Stderr, ensureNewline(cmdMain.UsageLong))
+		flagSet.PrintDefaults()
+		fmt.Fprintf(os.Stderr, completionDoc, cmdMain.Name, cmdMain.Name)
 	}
 
 	cmplMain := complete.Command{
@@ -132,14 +161,6 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 	completer := complete.New(cmdMain.Name, cmplMain)
 	if completer.Complete() {
 		os.Exit(0)
-	}
-
-	flagSet := cmdMain.FlagSet()
-	flagSet.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", cmdMain.Name)
-		fmt.Fprintf(os.Stderr, ensureNewline(cmdMain.UsageLong))
-		flagSet.PrintDefaults()
-		fmt.Fprintf(os.Stderr, completionDoc, cmdMain.Name, cmdMain.Name)
 	}
 
 	flagSet.Parse(os.Args[1:])
