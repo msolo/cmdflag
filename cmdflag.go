@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"text/tabwriter"
 	"time"
 
 	"github.com/posener/complete"
@@ -19,6 +20,8 @@ var (
 	PredictSet      = complete.PredictSet
 	PredictOr       = complete.PredictOr
 )
+
+type Args = complete.Args
 
 type Command struct {
 	Name      string
@@ -54,8 +57,8 @@ func (cmd *Command) BindFlagSet(bindFlags map[string]interface{}) *flag.FlagSet 
 	if fs == nil {
 		fs = flag.NewFlagSet(cmd.Name, flag.ExitOnError)
 		fs.Usage = func() {
-			fmt.Fprintf(os.Stderr, "Usage of %s:\n  %s\n", cmd.Name, cmd.UsageLine)
-			fmt.Fprintln(os.Stderr, cmd.UsageLong)
+			fmt.Fprintf(os.Stderr, "Usage of %s:\n\n%s\n", cmd.Name,
+				ensureNewline(cmd.UsageLong))
 			fs.PrintDefaults()
 		}
 	}
@@ -113,11 +116,6 @@ func (cmd *Command) completeCommand() complete.Command {
 	}
 }
 
-var completionDoc = `
-Install bash completions by running:
-	complete -C %v %v
-`
-
 func ensureNewline(s string) string {
 	if s[len(s)-1] != '\n' {
 		s += "\n"
@@ -150,6 +148,19 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", cmdMain.Name)
 		fmt.Fprintf(os.Stderr, ensureNewline(cmdMain.UsageLong))
 		flagSet.PrintDefaults()
+		if len(subCmds) > 0 {
+			fmt.Fprintf(os.Stderr, "\nSubcommands:\n")
+			tabWr := tabwriter.NewWriter(os.Stderr, 0, 4, 2, ' ', 0)
+			for _, cmd := range subCmds {
+				tabWr.Write([]byte(fmt.Sprintf("\t%s:\t%s\n", cmd.Name, ensureNewline(cmd.UsageLine))))
+			}
+			_ = tabWr.Flush()
+		}
+		fmt.Fprintf(os.Stderr, "\nFor more information, use <subcommand> -help.\n")
+		completionDoc := `
+Install bash completions by running:
+	complete -C %v %v
+`
 		fmt.Fprintf(os.Stderr, completionDoc, cmdMain.Name, cmdMain.Name)
 	}
 
@@ -178,6 +189,8 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 	}
 
 	if cmd, ok := cmdModeMap[cmdName]; ok {
+		// Parse the mode to systematically catch -help and unrecognized args.
+		cmd.FlagSet().Parse(args)
 		return cmd, args
 	}
 
