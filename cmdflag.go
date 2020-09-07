@@ -117,7 +117,7 @@ func (cmd *Command) completeCommand() complete.Command {
 }
 
 func ensureNewline(s string) string {
-	if s[len(s)-1] != '\n' {
+	if s == "" || s[len(s)-1] != '\n' {
 		s += "\n"
 	}
 	return s
