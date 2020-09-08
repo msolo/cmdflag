@@ -170,9 +170,10 @@ Install bash completions by running:
 	}
 
 	// This will exit if it performs completions.
-	fmt.Fprintln(os.Stderr, cmplMain)
 	complete.Complete(cmdMain.Name, cmplMain)
-	_ = flagSet.Parse(os.Args[1:])
+
+	flagSet.Parse(os.Args[1:])
+
 	exitUsage := func() {
 		flagSet.Usage()
 		os.Exit(1)
