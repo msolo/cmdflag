@@ -8,20 +8,20 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/posener/complete"
+	"github.com/posener/complete/v2"
+	"github.com/posener/complete/v2/predict"
 )
 
 var (
-	PredictNothing  = complete.PredictNothing
-	PredictAnything = complete.PredictAnything
-	PredictDirs     = complete.PredictDirs
-	PredictFiles    = complete.PredictFiles
-	PredictFilesSet = complete.PredictFilesSet
-	PredictSet      = complete.PredictSet
-	PredictOr       = complete.PredictOr
+	PredictNothing   = predict.Nothing
+	PredictSomething = predict.Something
+	PredictDirs      = predict.Dirs
+	PredictFiles     = predict.Files
+	PredictOr        = predict.Or
 )
 
-type Args = complete.Args
+type PredictFilesSet = predict.FilesSet
+type PredictSet = predict.Set
 
 type Command struct {
 	Name      string
@@ -96,21 +96,21 @@ func (cmd *Command) FlagSet() *flag.FlagSet {
 	return cmd.flagSet
 }
 
-func (cmd *Command) completeFlags() complete.Flags {
-	cf := make(complete.Flags)
+func (cmd *Command) completeFlags() map[string]complete.Predictor {
+	cf := make(map[string]complete.Predictor)
 	for _, fl := range cmd.Flags {
-		cf["-"+fl.Name] = fl.Predictor
+		cf[fl.Name] = fl.Predictor
 	}
 	fs := cmd.FlagSet()
 	fs.VisitAll(func(fl *flag.Flag) {
 		// Just complete the flag name - we can't know much else.
-		cf["-"+fl.Name] = PredictNothing
+		cf[fl.Name] = PredictNothing
 	})
 	return cf
 }
 
-func (cmd *Command) completeCommand() complete.Command {
-	return complete.Command{
+func (cmd *Command) completeCommand() *complete.Command {
+	return &complete.Command{
 		Args:  cmd.Args,
 		Flags: cmd.completeFlags(),
 	}
@@ -129,7 +129,7 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 	}
 
 	cmdModeMap := make(map[string]*Command)
-	cmplModeMap := make(complete.Commands)
+	cmplModeMap := make(map[string]*complete.Command)
 	for _, cmd := range subCmds {
 		cmdModeMap[cmd.Name] = cmd
 		cmplModeMap[cmd.Name] = cmd.completeCommand()
@@ -164,18 +164,15 @@ Install bash completions by running:
 		fmt.Fprintf(os.Stderr, completionDoc, cmdMain.Name, cmdMain.Name)
 	}
 
-	cmplMain := complete.Command{
+	cmplMain := &complete.Command{
 		Sub:   cmplModeMap,
 		Flags: cmdMain.completeFlags(),
 	}
 
-	completer := complete.New(cmdMain.Name, cmplMain)
-	if completer.Complete() {
-		os.Exit(0)
-	}
-
-	flagSet.Parse(os.Args[1:])
-
+	// This will exit if it performs completions.
+	fmt.Fprintln(os.Stderr, cmplMain)
+	complete.Complete(cmdMain.Name, cmplMain)
+	_ = flagSet.Parse(os.Args[1:])
 	exitUsage := func() {
 		flagSet.Usage()
 		os.Exit(1)
@@ -189,8 +186,6 @@ Install bash completions by running:
 	}
 
 	if cmd, ok := cmdModeMap[cmdName]; ok {
-		// Parse the mode to systematically catch -help and unrecognized args.
-		cmd.FlagSet().Parse(args)
 		return cmd, args
 	}
 

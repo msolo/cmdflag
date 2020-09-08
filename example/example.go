@@ -53,7 +53,6 @@ func main() {
 		"config-file": &configFile})
 
 	cmd, args := cmdflag.Parse(cmdMain, subcommands)
-
 	ctx := context.Background()
 	if timeout > 0 {
 		nctx, cancel := context.WithTimeout(ctx, timeout)
