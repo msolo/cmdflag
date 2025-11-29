@@ -189,8 +189,6 @@ Install bash completions by running:
 	}
 
 	if cmd, ok := cmdModeMap[cmdName]; ok {
-		// Parse the mode to systematically catch -help and unrecognized args.
-		cmd.FlagSet().Parse(args)
 		return cmd, args
 	}
 
