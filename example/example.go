@@ -19,14 +19,15 @@ var cmdDemo = &cmdflag.Command{
 	UsageLine: "example demo",
 	UsageLong: `Run a simple demo.`,
 	Flags: []cmdflag.Flag{
-		{"subflag", cmdflag.FlagTypeBool, false, "demo a subflag", nil},
+		{Name: "subflag", FlagType: cmdflag.FlagTypeBool, DefaultValue: false, Usage: "demo a subflag", Predictor: nil},
+		{Name: "v", FlagType: cmdflag.FlagTypeBool, DefaultValue: false, Usage: "demo a simple subflag", Predictor: nil},
 	},
 }
 
 func runDemo(ctx context.Context, cmd *cmdflag.Command, args []string) {
 	subflag := false
 	flags := cmd.BindFlagSet(map[string]interface{}{"subflag": &subflag})
-	flags.Parse(args)
+	_ = flags.Parse(args)
 	fmt.Println("demo stdflag:", *stdflag, "subflag:", subflag)
 }
 
@@ -34,8 +35,8 @@ var cmdMain = &cmdflag.Command{
 	Name:      "example",
 	UsageLong: doc,
 	Flags: []cmdflag.Flag{
-		{"timeout", cmdflag.FlagTypeDuration, 0 * time.Millisecond, "timeout for command execution", nil},
-		{"config-file", cmdflag.FlagTypeString, "", "local config file", cmdflag.PredictFiles("*")},
+		{Name: "timeout", FlagType: cmdflag.FlagTypeDuration, DefaultValue: 0 * time.Millisecond, Usage: "timeout for command execution", Predictor: nil},
+		{Name: "config-file", FlagType: cmdflag.FlagTypeString, DefaultValue: "", Usage: "local config file", Predictor: cmdflag.PredictFiles("*")},
 	},
 }
 
@@ -49,7 +50,7 @@ func main() {
 	var timeout time.Duration
 	var configFile string
 
-	cmdMain.BindFlagSet(map[string]interface{}{"timeout": &timeout,
+	cmdMain.BindFlagSet(map[string]any{"timeout": &timeout,
 		"config-file": &configFile})
 
 	cmd, args := cmdflag.Parse(cmdMain, subcommands)

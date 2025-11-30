@@ -4,7 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -96,15 +99,43 @@ func (cmd *Command) FlagSet() *flag.FlagSet {
 	return cmd.flagSet
 }
 
-func (cmd *Command) completeFlags() complete.Flags {
-	cf := make(complete.Flags)
+type boolFlag interface {
+	IsBoolFlag() bool
+}
+
+// Follow prevailing conventions
+func flagName(n string) string {
+	if len(n) > 1 {
+		return "--" + n
+	}
+	return "-" + n
+}
+
+func (cmd *Command) completeFlags() map[string]complete.Predictor {
+	cf := make(map[string]complete.Predictor)
 	for _, fl := range cmd.Flags {
-		cf["-"+fl.Name] = fl.Predictor
+		// bool flags are tricky. They require an = without whitespace
+		// so there is no parsing ambiguity. Suggest the full option
+		// rather than completing in stages, otherwise the completer
+		// will inject extra whitespace at the end.
+		name := flagName(fl.Name)
+		if fl.FlagType == FlagTypeBool {
+			cf[name+"=0"] = PredictNothing
+			cf[name+"=1"] = PredictNothing
+		} else {
+			cf[name] = fl.Predictor
+		}
 	}
 	fs := cmd.FlagSet()
 	fs.VisitAll(func(fl *flag.Flag) {
-		// Just complete the flag name - we can't know much else.
-		cf["-"+fl.Name] = PredictNothing
+		name := flagName(fl.Name)
+		if _, ok := fl.Value.(boolFlag); ok {
+			cf[name+"=0"] = PredictNothing
+			cf[name+"=1"] = PredictNothing
+		} else {
+			// Just complete the flag name - we can't know much else.
+			cf[name] = PredictNothing
+		}
 	})
 	return cf
 }
@@ -152,7 +183,7 @@ func Parse(cmdMain *Command, subCmds []*Command) (cmd *Command, args []string) {
 			fmt.Fprintf(os.Stderr, "\nSubcommands:\n")
 			tabWr := tabwriter.NewWriter(os.Stderr, 0, 4, 2, ' ', 0)
 			for _, cmd := range subCmds {
-				tabWr.Write([]byte(fmt.Sprintf("\t%s:\t%s\n", cmd.Name, ensureNewline(cmd.UsageLine))))
+				_, _ = tabWr.Write([]byte(fmt.Sprintf("\t%s:\t%s\n", cmd.Name, ensureNewline(cmd.UsageLine))))
 			}
 			_ = tabWr.Flush()
 		}
@@ -169,12 +200,9 @@ Install bash completions by running:
 		Flags: cmdMain.completeFlags(),
 	}
 
-	completer := complete.New(cmdMain.Name, cmplMain)
-	if completer.Complete() {
-		os.Exit(0)
-	}
-
-	flagSet.Parse(os.Args[1:])
+	// Don't worry about errors here, the individual commands will reparse
+	// for their specific flags.
+	_ = flagSet.Parse(os.Args[1:])
 
 	exitUsage := func() {
 		flagSet.Usage()
@@ -186,6 +214,23 @@ Install bash completions by running:
 	if len(args) > 0 {
 		cmdName = args[0]
 		args = args[1:]
+	}
+
+	hasDanglingEqual := strings.HasSuffix(os.Getenv("COMP_LINE"), "=")
+	// FIXME(msolo) There is an upstream bug. When a flag complete ends in "=",
+	// modes are suggested, rather than the flags. The real fix is to go
+	// upstream and fix the library. Or reimplement it from scratch.
+	if hasDanglingEqual {
+		for _, k := range slices.Collect(maps.Keys(cmplModeMap)) {
+			if k != cmdName {
+				delete(cmplModeMap, k)
+			}
+		}
+	}
+
+	completer := complete.New(cmdMain.Name, cmplMain)
+	if completer.Complete() {
+		os.Exit(0)
 	}
 
 	if cmd, ok := cmdModeMap[cmdName]; ok {
